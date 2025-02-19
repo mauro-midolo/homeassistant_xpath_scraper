@@ -1,0 +1,19 @@
+{
+    "domain": "xpath_scraper",
+    "name": "XPath Scraper integration",
+    "codeowners": [
+      "@mauro-midolo"
+    ],
+    "config_flow": true,
+    "dependencies": [],
+    "documentation": "https://github.com/mauro-midolo/homeassistant_xpath_scraper",
+    "homekit": {},
+    "iot_class": "cloud_polling",
+    "issue_tracker": "https://github.com/mauro-midolo/homeassistant_xpath_scraper/issues",
+    "requirements": [
+      "lxml"
+    ],
+    "ssdp": [],
+    "version": "1.2.0",
+    "zeroconf": []
+  }

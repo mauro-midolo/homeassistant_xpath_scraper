@@ -1,0 +1,32 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "XPath Scraper",
+          "description": "Si necesitas ayuda con la configuración, consulta: https://github.com/mauro-midolo/homeassistant_xpath_scraper",
+          "data": {
+            "xpath_scraper_name": "Nombre amigable",
+            "xpath_scraper_url": "URL del servidor web (ej. https://google.com)",
+            "xpath_scraper_ssl_check": "Verificación SSL",
+            "xpath_scraper_xpath": "XPath",
+            "xpath_scraper_clean_check": "Limpiar valor numérico (ej. \"1,2€ -> 1,2\" o \"texto 1.2 -> 1.2\")",
+            "xpath_scraper_unit_of_measurement": "Unidad de medida"
+          }
+        }
+      },
+      "error": {
+        "invalid_url": "La ruta Http/Https no es correcta",
+        "invalid_xpath": "El XPath proporcionado no es válido."
+      }
+    },
+    "options": {
+      "step": {
+        "user": {
+          "data": {
+            "scan_interval": "Intervalo de actualización (segundos)"
+          }
+        }
+      }
+    }
+  }
+  
