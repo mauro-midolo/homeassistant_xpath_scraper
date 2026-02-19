@@ -3,7 +3,7 @@
       "step": {
         "user": {
           "title": "XPath Scraper",
-          "description": "Se precisar de ajuda com a configuração, veja: https://github.com/mauro-midolo/homeassistant_xpath_scraper",
+          "description": "Se precisar de ajuda com a configuração, consulte a documentação do projeto no GitHub.",
           "data": {
             "xpath_scraper_name": "Nome amigável",
             "xpath_scraper_url": "URL do servidor web (ex. https://google.com)",
