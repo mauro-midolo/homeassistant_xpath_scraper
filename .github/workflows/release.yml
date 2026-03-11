@@ -1,63 +1,176 @@
-name: Release on master push
+name: Release HACS Integration
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-main
   cancel-in-progress: true
 
 jobs:
-  release:
+  prepare_release:
+    name: Prepare Release
     runs-on: ubuntu-latest
+
+    outputs:
+      current_version: ${{ steps.version.outputs.current_version }}
+      next_version: ${{ steps.version.outputs.next_version }}
+      next_tag: ${{ steps.version.outputs.next_tag }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Fetch all tags
-        run: git fetch --force --tags
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Calculate next version
         id: version
         shell: bash
         run: |
-          latest_tag=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          python <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
 
-          if [ -z "$latest_tag" ]; then
-            new_tag="v0.0.1"
-          else
-            version="${latest_tag#v}"
-            IFS='.' read -r major minor patch <<< "$version"
-            patch=$((patch + 1))
-            new_tag="v${major}.${minor}.${patch}"
-          fi
+          manifest_path = "custom_components/xpath_scraper/manifest.json"
 
-          echo "new_tag=$new_tag" >> "$GITHUB_OUTPUT"
+          with open(manifest_path, encoding="utf-8") as f:
+              manifest = json.load(f)
 
-      - name: Create and push tag
-        env:
-          NEW_TAG: ${{ steps.version.outputs.new_tag }}
+          manifest_version = str(manifest.get("version", "")).strip()
+
+          if not re.fullmatch(r"\d+\.\d+\.\d+", manifest_version):
+              print(
+                  f"Versione non valida in {manifest_path}: {manifest_version!r}. Atteso formato x.y.z",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          def parse_tag(tag: str):
+              match = re.fullmatch(r"(v?)(\d+)\.(\d+)\.(\d+)", tag.strip())
+              if not match:
+                  return None
+              prefix, major, minor, patch = match.groups()
+              return {
+                  "raw": tag.strip(),
+                  "prefix": prefix,
+                  "version": (int(major), int(minor), int(patch)),
+              }
+
+          tags = subprocess.check_output(
+              ["git", "tag", "--list"],
+              text=True
+          ).splitlines()
+
+          semver_tags = [parsed for tag in tags if (parsed := parse_tag(tag))]
+          manifest_tuple = tuple(map(int, manifest_version.split(".")))
+
+          if semver_tags:
+              latest = max(semver_tags, key=lambda item: item["version"])
+              base_version = max(manifest_tuple, latest["version"])
+              tag_prefix = latest["prefix"]
+          else:
+              base_version = manifest_tuple
+              tag_prefix = ""
+
+          major, minor, patch = base_version
+          next_version = f"{major}.{minor}.{patch + 1}"
+          next_tag = f"{tag_prefix}{next_version}"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"current_version={manifest_version}\n")
+              fh.write(f"next_version={next_version}\n")
+              fh.write(f"next_tag={next_tag}\n")
+
+          print(f"Current manifest version: {manifest_version}")
+          print(f"Next version: {next_version}")
+          print(f"Next tag: {next_tag}")
+          PY
+
+  bump_version:
+    name: Bump manifest version
+    runs-on: ubuntu-latest
+    needs: prepare_release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+
+      - name: Update manifest.json version
+        shell: bash
+        run: |
+          python <<'PY'
+          import json
+
+          manifest_path = "custom_components/xpath_scraper/manifest.json"
+          new_version = "${{ needs.prepare_release.outputs.next_version }}"
+
+          with open(manifest_path, encoding="utf-8") as f:
+              manifest = json.load(f)
+
+          manifest["version"] = new_version
+
+          with open(manifest_path, "w", encoding="utf-8") as f:
+              json.dump(manifest, f, indent=2, ensure_ascii=False)
+              f.write("\n")
+          PY
+
+      - name: Commit version bump
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
+          git add custom_components/xpath_scraper/manifest.json
 
-      - name: Create GitHub Release with autogenerated notes
-        env:
-          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_TAG: ${{ steps.version.outputs.new_tag }}
+          if git diff --cached --quiet; then
+            echo "Nessuna modifica da committare"
+            exit 0
+          fi
+
+          git commit -m "chore: bump version to ${{ needs.prepare_release.outputs.next_version }} [skip ci]"
+          git push origin main
+
+  create_release:
+    name: Create Tag and Release
+    runs-on: ubuntu-latest
+    needs: [prepare_release, bump_version]
+
+    steps:
+      - name: Checkout updated main
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+
+      - name: Create tag
+        shell: bash
         run: |
-          gh release create "$NEW_TAG" \
-            --verify-tag \
-            --generate-notes \
-            --latest
+          TAG="${{ needs.prepare_release.outputs.next_tag }}"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Il tag $TAG esiste già"
+            exit 1
+          fi
+
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare_release.outputs.next_tag }}
+          name: Release ${{ needs.prepare_release.outputs.next_tag }}
+          generate_release_notes: true
