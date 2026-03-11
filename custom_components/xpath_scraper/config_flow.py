@@ -101,7 +101,7 @@ class XPathScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     def async_get_options_flow(config_entry):
-        return XPathScraperOptionsFlow()
+        return XPathScraperOptionsFlow(config_entry)
 
 
 class XPathScraperOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
