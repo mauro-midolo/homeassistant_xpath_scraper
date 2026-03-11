@@ -3,14 +3,14 @@ name: Release on master push
 on:
   push:
     branches:
-      - master
+      - main
 
 permissions:
   contents: write
 
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   release:
