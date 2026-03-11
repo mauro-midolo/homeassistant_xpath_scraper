@@ -172,5 +172,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare_release.outputs.next_tag }}
-          name: Release ${{ needs.prepare_release.outputs.next_tag }}
+          name: ${{ needs.prepare_release.outputs.next_tag }}
           generate_release_notes: true
