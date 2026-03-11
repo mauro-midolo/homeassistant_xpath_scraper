@@ -104,9 +104,7 @@ class XPathScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return XPathScraperOptionsFlow(config_entry)
 
 
-class XPathScraperOptionsFlow(config_entries.OptionsFlow):
-    def __init__(self, config_entry):
-        self.config_entry = config_entry
+class XPathScraperOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
